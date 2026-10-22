@@ -163,6 +163,24 @@ h1{font-size:clamp(26px,3.4vw,40px)}
   .panel{height:100%; min-height:0; overflow-y:auto}
   .panel .list{flex:1; min-height:0; max-height:none}
 }
+
+/* ---- v4: sem quadrado de foco, regiões, YouTube ---- */
+#map path{outline:none; vector-effect:non-scaling-stroke}
+#map path.dim{opacity:.16}
+#map text{font-size:calc(12.5px*var(--z,1)); stroke-width:calc(3px*var(--z,1))}
+#map text.sm{font-size:calc(8px*var(--z,1))}
+#map circle{r:calc(3px*var(--z,1)); stroke-width:calc(1.5px*var(--z,1))}
+#map text.dim,#map circle.dim{opacity:.2}
+.regs{display:flex; flex-wrap:wrap; gap:6px; padding:0 0 8px}
+.btn.sm{padding:4px 10px; font-size:13px}
+.radio{position:relative}
+.pop{position:absolute; right:0; top:calc(100% + 8px); z-index:40; width:min(340px,90vw); background:var(--panel); border:1px solid var(--fg); border-radius:8px; padding:12px; box-shadow:0 8px 24px rgb(0 0 0 / .3)}
+.pop input[type=text]{width:100%; font:inherit; font-size:14px; padding:7px 9px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg)}
+.pop .acts{display:flex; gap:8px; margin-top:8px; flex-wrap:wrap}
+.pop p{margin:8px 0 0; font-size:12.5px; color:var(--muted)}
+.ytcard{position:fixed; left:max(16px, env(safe-area-inset-left, 0px)); bottom:calc(86px + env(safe-area-inset-bottom, 0px)); z-index:30; width:236px; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px; box-shadow:0 6px 20px rgb(0 0 0 / .3)}
+.yth{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted)}
+.ytcard iframe,.ytcard #ytp{display:block; width:220px; height:200px; border:0}
 </style>
 
 <div class="wrap">
@@ -189,8 +207,14 @@ h1{font-size:clamp(26px,3.4vw,40px)}
       <span class="radio">
         <button class="btn" id="btnRadio" type="button" aria-pressed="false">♪ Ligar rádio</button>
         <button class="btn" id="btnNext" type="button" hidden>Próxima</button>
+        <button class="btn" id="btnYt" type="button" aria-expanded="false">YouTube</button>
         <input id="vol" type="range" min="0" max="100" value="60" aria-label="Volume da rádio">
         <span class="trk" id="trk"></span>
+        <div class="pop" id="pop" hidden>
+          <input id="ytIn" type="text" placeholder="Cole o link de um vídeo ou playlist do YouTube" aria-label="Link do YouTube">
+          <div class="acts"><button class="btn" id="ytGo" type="button">Tocar</button><button class="btn" id="ytOff" type="button">Voltar à música ambiente</button></div>
+          <p>Funciona com vídeos e playlists que permitem incorporação. O player aparece no canto da tela.</p>
+        </div>
       </span>
       <span class="chip" id="chip">Fonte: TSE</span>
       <span class="status">
@@ -205,12 +229,14 @@ h1{font-size:clamp(26px,3.4vw,40px)}
 
   <main class="grid">
     <section class="mapcard">
+      <div class="regs" id="regs" role="group" aria-label="Filtrar por região"></div>
       <svg id="map" viewBox="0 0 600 616" role="group" aria-label="Mapa do Brasil. Cor mostra quem lidera para presidente em cada estado."></svg>
       <div class="legend" id="legend"></div>
     </section>
     <aside class="panel" id="panel"></aside>
   </main>
   <div class="tip" id="tip" hidden></div>
+  <div class="ytcard" id="ytcard" hidden><div class="yth"><span>YouTube</span><button class="btn sm" id="ytClose" type="button" aria-label="Fechar player">×</button></div><div id="ytp"></div></div>
 </div>
 
 <script>
@@ -225,6 +251,7 @@ const GOV_UFS = ['AC','AM','DF','ES','RN','TO'];  // estados/DF com 2º turno pa
 const INTERVALO_MS = 45000;
 const OUTROS = ['--o1','--o2','--o0','--o3','--o4'];
 const UFS = Object.keys(GEO.states);
+const REGIOES = { 'Norte': ['AC','AM','AP','PA','RO','RR','TO'], 'Nordeste': ['AL','BA','CE','MA','PB','PE','PI','RN','SE'], 'Centro-Oeste': ['DF','GO','MS','MT'], 'Sudeste': ['ES','MG','RJ','SP'], 'Sul': ['PR','RS','SC'] };
 
 /* ---------- UTIL ---------- */
 const nf = new Intl.NumberFormat('pt-BR');
@@ -326,16 +353,24 @@ function demoAvancar(mult){
 }
 
 /* ---------- ESTADO DA PÁGINA ---------- */
-let D = null, sel = null, turno = 2, paused = false, speed = 1, timer = null, agora = new Date();
+let regiao = null, D = null, sel = null, turno = 2, paused = false, speed = 1, timer = null, agora = new Date();
 
 function lider(un){
   if (!un || !un.votos.length || !soma(un.votos)) return null;
   return un.votos.reduce((a, c) => c.v > a.v ? c : a, un.votos[0]);
 }
+function agregar(us){
+  us = us.filter(Boolean); if (!us.length) return null;
+  const m = new Map();
+  us.forEach(u => u.votos.forEach(c => { const k = c.nome + '|' + c.n, x = m.get(k); if (x) x.v += c.v; else m.set(k, Object.assign({}, c)); }));
+  const s = f => us.reduce((a, u) => a + (u[f] || 0), 0), ts = s('ts'), st = s('st');
+  return { votos: [...m.values()], ts, st, f: ts ? st / ts : 0, eleit: s('eleit'), vv: s('vv'), vb: s('vb'), vn: s('vn'), ger: us[0].ger };
+}
 function ordenar(un){ return [...un.votos].sort((a, b) => b.v - a.v); }
 
 /* ---------- MAPA ---------- */
-const svg = document.getElementById('map'), NS = 'http://www.w3.org/2000/svg', pathEl = {};
+const svg = document.getElementById('map'), NS = 'http://www.w3.org/2000/svg', pathEl = {}, lblEl = {}, dotEl = {}, BB = {};
+function bbox(d){ const n = d.match(/-?\d+\.?\d*/g).map(Number); let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (let i = 0; i + 1 < n.length; i += 2){ x0 = Math.min(x0, n[i]); x1 = Math.max(x1, n[i]); y0 = Math.min(y0, n[i+1]); y1 = Math.max(y1, n[i+1]); } return { x0, y0, x1, y1 }; }
 function montarMapa(){
   const g = document.createElementNS(NS, 'g'), gl = document.createElementNS(NS, 'g'); svg.appendChild(g); svg.appendChild(gl);
   UFS.forEach(uf => {
@@ -347,9 +382,9 @@ function montarMapa(){
     p.addEventListener('pointerleave', () => { tip.hidden = true; });
     g.appendChild(p); pathEl[uf] = p;
     const t = document.createElementNS(NS, 'text'); t.setAttribute('x', st.cx); t.setAttribute('y', st.cy); t.textContent = uf;
-    if (uf === 'DF') t.setAttribute('font-size', '7'); gl.appendChild(t);
+    if (uf === 'DF') t.classList.add('sm'); gl.appendChild(t); lblEl[uf] = t; BB[uf] = bbox(st.d);
     if (GOV_UFS.includes(uf)){
-      const c = document.createElementNS(NS, 'circle'); c.setAttribute('cx', st.cx); c.setAttribute('cy', st.cy + (uf === 'DF' ? 8 : 10)); c.setAttribute('r', 3); gl.appendChild(c);
+      const c = document.createElementNS(NS, 'circle'); c.setAttribute('cx', st.cx); c.setAttribute('cy', st.cy + (uf === 'DF' ? 8 : 10)); c.setAttribute('r', 3); gl.appendChild(c); dotEl[uf] = c;
     }
   });
 }
@@ -360,6 +395,8 @@ function pintar(){
     else { p.style.fill = l.cor; p.style.fillOpacity = (0.45 + 0.55 * un.f).toFixed(2); }
     p.setAttribute('aria-label', GEO.states[uf].name + (un ? ', ' + pct(un.f * 100) + ' apurado' : '') + (l ? ', lidera ' + tc(l.nome) : ''));
     p.classList.toggle('sel', uf === sel);
+    const fora = !!regiao && !REGIOES[regiao].includes(uf);
+    p.classList.toggle('dim', fora); lblEl[uf].classList.toggle('dim', fora); if (dotEl[uf]) dotEl[uf].classList.toggle('dim', fora);
   });
 }
 const tip = document.getElementById('tip');
@@ -379,7 +416,7 @@ function lado(c, tot, cls){
 }
 function hero(){
   const el = document.getElementById('hero');
-  const br = D && D.pres.br;
+  const br = D && (regiao ? agregar(REGIOES[regiao].map(uf => D.pres.uf[uf])) : D.pres.br);
   if (!br){ el.innerHTML = '<p class="meta">Carregando resultado nacional…</p>'; return; }
   const tot = soma(br.votos), L = br.votos.find(isLula), B = br.votos.find(isBolso), ord = ordenar(br);
   let a, b;
@@ -388,11 +425,11 @@ function hero(){
   const outros = br.votos.filter(c => c !== a && c !== b).sort((x, y) => y.v - x.v);
   el.innerHTML =
     '<div class="duel">' + (a ? lado(a, tot, 'l') : '') +
-    '<div class="mid"><p class="eyebrow">Seções apuradas</p><div class="big">' + pct(br.f * 100, 2).replace('%', '') + '<small>%</small></div>' +
-    '<p class="meta">' + nf.format(br.st) + ' de ' + nf.format(br.ts) + '</p></div>' + (b ? lado(b, tot, 'r') : '') + '</div>' +
+    '<div class="mid"><p class="eyebrow">' + (regiao || 'Brasil') + ' · apurado</p><div class="big">' + pct(br.f * 100, 2).replace('%', '') + '<small>%</small></div>' +
+    '<p class="meta">' + nf.format(br.st) + ' de ' + nf.format(br.ts) + ' seções</p></div>' + (b ? lado(b, tot, 'r') : '') + '</div>' +
     '<div class="stack" role="img" aria-label="Divisão dos votos válidos">' + stackOrd.map(c => '<b style="width:' + (tot ? c.v / tot * 100 : 0).toFixed(3) + '%;background:' + c.cor + '"></b>').join('') + '</div>' +
     (outros.length ? '<p class="others">' + outros.map(c => '<span><i style="background:' + c.cor + '"></i>' + tc(c.nome) + ' ' + pct(tot ? c.v / tot * 100 : 0) + '</span>').join('') + '</p>' : '') +
-    '<p class="meta hfoot">' + (DEMO ? 'Brasil' : 'Brasil e exterior') + ' · ' + nf.format(tot) + ' votos válidos' + (br.ger ? ' · arquivo do TSE gerado em ' + br.ger : '') + '</p>';
+    '<p class="meta hfoot">' + (regiao ? 'Região ' + regiao : (DEMO ? 'Brasil' : 'Brasil e exterior')) + ' · ' + nf.format(tot) + ' votos válidos' + (br.ger ? ' · arquivo do TSE gerado em ' + br.ger : '') + '</p>';
 }
 
 /* ---------- PAINEL ---------- */
@@ -424,9 +461,9 @@ function painel(){
         : '<p class="meta">Sem dados para este estado agora.</p>') +
       (GOV_UFS.includes(sel) ? '<div class="sec"><h3>Governador · ' + tl + '</h3>' + (g ? blocoApuracao(g) + linhas(g, 6) : '<p class="meta">Sem dados de governador agora.</p>') + '</div>' : '');
   } else {
-    const ordem = UFS.map(uf => ({ uf, un: D.pres.uf[uf] })).sort((a, b) => (b.un ? b.un.eleit : 0) - (a.un ? a.un.eleit : 0));
+    const ordem = (regiao ? REGIOES[regiao] : UFS).map(uf => ({ uf, un: D.pres.uf[uf] })).sort((a, b) => (b.un ? b.un.eleit : 0) - (a.un ? a.un.eleit : 0));
     panel.innerHTML =
-      '<p class="eyebrow">Estados · presidente</p>' +
+      '<p class="eyebrow">Estados · presidente' + (regiao ? ' · ' + regiao : '') + '</p>' +
       '<div class="list">' + ordem.map(({ uf, un }) => {
         const l = lider(un);
         return '<button class="row" type="button" data-act="uf" data-uf="' + uf + '" data-focus="row-' + uf + '"><span class="uf"><span class="dot" style="background:' + (l ? l.cor : 'var(--none)') + '"></span>' + uf + '</span>' +
@@ -440,6 +477,41 @@ panel.addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
   if (b.dataset.act === 'back') selecionar(null); else if (b.dataset.act === 'uf') selecionar(b.dataset.uf);
 });
+let vbAtual = [0, 0, 600, 616], vbAnim = null;
+const escala = v => Math.min((svg.clientWidth || 600) / v[2], (svg.clientHeight || 616) / v[3]);
+function aplicarVB(v){
+  vbAtual = v; svg.setAttribute('viewBox', v.map(n => n.toFixed(1)).join(' '));
+  const z = escala([0, 0, 600, 616]) / escala(v); svg.style.setProperty('--z', z.toFixed(3));
+  for (const uf in dotEl) dotEl[uf].setAttribute('cy', (GEO.states[uf].cy + (uf === 'DF' ? 8 : 10) * z).toFixed(1));
+}
+function zoomPara(alvo){
+  if (vbAnim) cancelAnimationFrame(vbAnim);
+  const ini = vbAtual.slice();
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches){ aplicarVB(alvo); return; }
+  const t0 = performance.now();
+  const passo = now => { const k = Math.min(1, (now - t0) / 380), e = 1 - Math.pow(1 - k, 3); aplicarVB(ini.map((x, i) => x + (alvo[i] - x) * e)); if (k < 1) vbAnim = requestAnimationFrame(passo); };
+  vbAnim = requestAnimationFrame(passo);
+}
+function vbRegiao(){
+  if (!regiao) return [0, 0, 600, 616];
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  REGIOES[regiao].forEach(uf => { const b = BB[uf]; x0 = Math.min(x0, b.x0); y0 = Math.min(y0, b.y0); x1 = Math.max(x1, b.x1); y1 = Math.max(y1, b.y1); });
+  const w = x1 - x0, h = y1 - y0, p = Math.max(w, h) * 0.08;
+  return [x0 - p, y0 - p, w + 2 * p, h + 2 * p];
+}
+function montarRegs(){
+  document.getElementById('regs').innerHTML = ['Brasil'].concat(Object.keys(REGIOES)).map(n => {
+    const v = n === 'Brasil' ? '' : n, on = (n === 'Brasil' && !regiao) || n === regiao;
+    return '<button class="btn sm" type="button" data-reg="' + v + '" aria-pressed="' + on + '">' + n + '</button>';
+  }).join('');
+}
+function setRegiao(r){
+  regiao = r || null;
+  if (sel && regiao && !REGIOES[regiao].includes(sel)) sel = null;
+  montarRegs(); zoomPara(vbRegiao()); desenhar();
+}
+document.getElementById('regs').addEventListener('click', e => { const b = e.target.closest('[data-reg]'); if (b) setRegiao(b.dataset.reg); });
+window.addEventListener('resize', () => aplicarVB(vbAtual));
 function selecionar(uf){ sel = (uf === sel ? null : uf); desenhar(); }
 
 function legenda(){
@@ -547,19 +619,80 @@ function ligarLista(){
   if (!audEl){ audEl = new Audio(); audEl.preload = 'auto'; audEl.addEventListener('ended', proxima); carregarFaixa(faixa); }
   audEl.volume = vol(); audEl.play().catch(() => { rTrk.textContent = 'Não foi possível tocar'; });
 }
-rBtn.addEventListener('click', () => {
-  radioOn = !radioOn; rBtn.setAttribute('aria-pressed', String(radioOn)); rBtn.textContent = radioOn ? '♪ Rádio ligada' : '♪ Ligar rádio';
-  if (MUSICAS.length){ if (radioOn) ligarLista(); else if (audEl) audEl.pause(); }
-  else { if (radioOn) ligarSintese(); else desligarSintese(); }
-});
 rNext.addEventListener('click', proxima);
 rNext.hidden = MUSICAS.length < 2;
+
+/* YouTube: o dono do site pode deixar um link padrão aqui (vídeo ou playlist);
+   cada visitante também pode colar o próprio link no botão "YouTube". */
+const YOUTUBE = '';
+let ytLink = YOUTUBE, yt = null, fonte = MUSICAS.length ? 'lista' : 'sintese';
+try { ytLink = localStorage.getItem('apuracao-yt') || YOUTUBE; } catch (e) {}
+if (ytLink) fonte = 'yt';
+const popEl = document.getElementById('pop'), ytCard = document.getElementById('ytcard'), ytIn = document.getElementById('ytIn');
+function ytParse(s){
+  s = String(s || '').trim();
+  const list = (s.match(/[?&]list=([\w-]+)/) || [])[1];
+  let vid = (s.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/) || [])[1];
+  if (!vid && /^[\w-]{11}$/.test(s)) vid = s;
+  return { list, vid };
+}
+function ytCarregarAPI(cb){
+  if (window.YT && window.YT.Player){ cb(); return; }
+  window.onYouTubeIframeAPIReady = cb;
+  const s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api';
+  s.onerror = () => { rTrk.textContent = 'YouTube indisponível aqui'; ytCard.hidden = true; fonte = MUSICAS.length ? 'lista' : 'sintese'; };
+  document.head.appendChild(s);
+}
+function ytLigar(){
+  const p = ytParse(ytLink);
+  if (!p.list && !p.vid){ rTrk.textContent = 'Link do YouTube inválido'; return; }
+  ytCard.hidden = false; rTrk.textContent = 'YouTube';
+  ytCarregarAPI(() => {
+    if (!yt){
+      yt = new YT.Player('ytp', { width: '220', height: '200', videoId: p.list ? undefined : p.vid,
+        playerVars: p.list ? { listType: 'playlist', list: p.list, playsinline: 1, rel: 0 } : { playsinline: 1, rel: 0 },
+        events: { onReady: e => { e.target.setVolume(vol() * 100); if (radioOn) e.target.playVideo(); } } });
+    } else {
+      if (p.list) yt.loadPlaylist({ listType: 'playlist', list: p.list }); else yt.loadVideoById(p.vid);
+      yt.setVolume(vol() * 100);
+    }
+  });
+}
+function ytParar(){
+  if (yt && yt.pauseVideo) yt.pauseVideo();
+  ytCard.hidden = true; ytLink = ''; fonte = MUSICAS.length ? 'lista' : 'sintese';
+  try { localStorage.removeItem('apuracao-yt'); } catch (e) {}
+  rTrk.textContent = ''; if (radioOn) ligar();
+}
+function ligar(){ if (fonte === 'yt') ytLigar(); else if (fonte === 'lista') ligarLista(); else ligarSintese(); }
+function desligar(){
+  if (fonte === 'yt'){ if (yt && yt.pauseVideo) yt.pauseVideo(); }
+  else if (fonte === 'lista'){ if (audEl) audEl.pause(); }
+  else desligarSintese();
+}
+function rotuloRadio(){ rBtn.setAttribute('aria-pressed', String(radioOn)); rBtn.textContent = radioOn ? '♪ Rádio ligada' : '♪ Ligar rádio'; }
+rBtn.addEventListener('click', () => { radioOn = !radioOn; rotuloRadio(); if (radioOn) ligar(); else desligar(); });
+document.getElementById('btnYt').addEventListener('click', e => {
+  popEl.hidden = !popEl.hidden; e.currentTarget.setAttribute('aria-expanded', String(!popEl.hidden));
+  if (!popEl.hidden){ ytIn.value = ytLink; ytIn.focus(); }
+});
+document.getElementById('ytGo').addEventListener('click', () => {
+  const p = ytParse(ytIn.value);
+  if (!p.list && !p.vid){ rTrk.textContent = 'Link do YouTube inválido'; return; }
+  if (radioOn) desligar();
+  ytLink = ytIn.value.trim(); fonte = 'yt'; radioOn = true; rotuloRadio();
+  try { localStorage.setItem('apuracao-yt', ytLink); } catch (e) {}
+  popEl.hidden = true; document.getElementById('btnYt').setAttribute('aria-expanded', 'false');
+  ytLigar();
+});
+document.getElementById('ytOff').addEventListener('click', () => { popEl.hidden = true; document.getElementById('btnYt').setAttribute('aria-expanded', 'false'); if (fonte === 'yt') ytParar(); });
+document.getElementById('ytClose').addEventListener('click', ytParar);
 rVol.addEventListener('input', () => {
-  if (master) master.gain.value = vol() * 0.8; if (audEl) audEl.volume = vol();
+  if (master) master.gain.value = vol() * 0.8; if (audEl) audEl.volume = vol(); if (yt && yt.setVolume) yt.setVolume(vol() * 100);
   try { localStorage.setItem('apuracao-vol', rVol.value); } catch (e) {}
 });
 
-montarMapa(); legenda();
+montarMapa(); legenda(); montarRegs(); aplicarVB(vbAtual);
 if (DEMO){
   document.getElementById('demoCtl').hidden = false;
   document.getElementById('segTurno').hidden = true; document.getElementById('lblTurno').hidden = true;

@@ -23,3 +23,8 @@ O botão "♪ Ligar rádio" toca uma música ambiente gerada no próprio navegad
 Navegadores só liberam som depois de um clique, então alguém precisa apertar o botão.
 Para tocar suas próprias músicas, coloque os arquivos numa pasta `musicas/` do repositório e liste em `MUSICAS`
 no topo do bloco "RÁDIO" do `index.html`. Use só músicas que você tem direito de usar em um site público.
+
+## Filtro por região e YouTube
+- Os botões acima do mapa (Norte, Nordeste, Centro-Oeste, Sudeste, Sul) dão zoom na região e mostram o placar somado dela.
+- O botão "YouTube" deixa qualquer visitante colar o link de um vídeo ou playlist para tocar no player do canto da tela.
+  Para já abrir o site com uma playlist sua, coloque o link em `YOUTUBE` no bloco "RÁDIO" do `index.html`.
