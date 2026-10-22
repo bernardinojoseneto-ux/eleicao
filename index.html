@@ -153,7 +153,7 @@ h1{font-size:clamp(26px,3.4vw,40px)}
 .state-name{font-size:30px; margin-bottom:8px}
 .sec{margin-top:12px; padding-top:10px}
 .cand{margin:8px 0}
-@media (min-width:861px) and (min-height:600px){
+@media (min-width:861px) and (min-height:560px){
   html,body{height:100%; overflow:hidden}
   body{padding-block:10px 12px}
   .wrap{height:100%; min-height:0}
@@ -181,6 +181,35 @@ h1{font-size:clamp(26px,3.4vw,40px)}
 .ytcard{position:fixed; left:max(16px, env(safe-area-inset-left, 0px)); bottom:calc(86px + env(safe-area-inset-bottom, 0px)); z-index:30; width:236px; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px; box-shadow:0 6px 20px rgb(0 0 0 / .3)}
 .yth{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted)}
 .ytcard iframe,.ytcard #ytp{display:block; width:220px; height:200px; border:0}
+
+/* ---- v6: player pequeno no canto, publicidade, gradiente ---- */
+.mapcard{position:relative}
+.ytcard{position:absolute; left:8px; bottom:46px; width:200px; height:200px; padding:0; border:0; border-radius:6px; background:#000; box-shadow:0 4px 14px rgb(0 0 0 / .35); z-index:30}
+.ytcard iframe,.ytcard #ytp{display:block; width:200px; height:200px; border:0; border-radius:6px}
+.ytx{position:absolute; top:-9px; right:-9px; z-index:2; width:22px; height:22px; border-radius:50%; border:1px solid var(--line); background:var(--panel); color:var(--fg); font:inherit; font-size:14px; line-height:1; padding:0; cursor:pointer}
+@media (max-width:860px){ .ytcard{position:fixed; left:max(8px, env(safe-area-inset-left, 0px)); bottom:calc(8px + env(safe-area-inset-bottom, 0px))} }
+.sw.wide{width:34px}
+.ad{flex:none; position:relative; display:flex; align-items:center; justify-content:center; height:clamp(48px,8vh,84px); background:var(--panel); border:1px solid var(--line); border-radius:8px; overflow:hidden}
+.ad .slot{display:flex; align-items:center; justify-content:center; width:100%; height:100%}
+.ad .slot a{display:flex; align-items:center; justify-content:center; width:100%; height:100%}
+.ad img{max-width:100%; max-height:100%; object-fit:contain}
+.ad .adtag{position:absolute; top:3px; left:8px; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); z-index:1}
+.ad .vazio{font-size:13px; color:var(--muted); border:1px dashed var(--line); border-radius:6px; padding:6px 16px}
+
+@media (min-width:861px) and (max-height:780px){
+  .sub{display:none}
+  h1{font-size:26px}
+  .hero{padding:8px 14px}
+  .side .nm{font-size:18px}
+  .side .pc{font-size:42px}
+  .mid .big{font-size:28px}
+  .stack{margin-top:6px; height:10px}
+  .hfoot,.others{display:none}
+  .ad{height:44px}
+  .regs{padding-bottom:6px}
+  .wrap{gap:8px}
+  .legend{padding-top:4px}
+}
 </style>
 
 <div class="wrap">
@@ -207,13 +236,13 @@ h1{font-size:clamp(26px,3.4vw,40px)}
       <span class="radio">
         <button class="btn" id="btnRadio" type="button" aria-pressed="false">♪ Ligar rádio</button>
         <button class="btn" id="btnNext" type="button" hidden>Próxima</button>
-        <button class="btn" id="btnYt" type="button" aria-expanded="false">YouTube</button>
+        <button class="btn" id="btnYt" type="button" aria-expanded="false">Trocar música</button>
         <input id="vol" type="range" min="0" max="100" value="60" aria-label="Volume da rádio">
         <span class="trk" id="trk"></span>
         <div class="pop" id="pop" hidden>
-          <textarea id="ytIn" rows="3" placeholder="Cole um ou vários links do YouTube (um por linha)" aria-label="Links do YouTube"></textarea>
+          <textarea id="ytIn" rows="3" placeholder="Cole links do YouTube (um por linha) ou o link direto de um áudio / rádio na internet" aria-label="Links de música"></textarea>
           <div class="acts"><button class="btn" id="ytGo" type="button">Tocar</button><button class="btn" id="ytOff" type="button">Voltar à música ambiente</button></div>
-          <p>Com vários links, a rádio alterna entre eles a cada 15 minutos e retoma de onde parou. Só toca vídeos que permitem incorporação. O player aparece no canto da tela.</p>
+          <p>YouTube: com vários links, alterna a cada 15 minutos e retoma de onde parou (só toca vídeos que permitem incorporação; o player aparece no canto do mapa). Áudio direto: links https de arquivos .mp3 ou de rádios na internet.</p>
         </div>
       </span>
       <span class="chip" id="chip">Fonte: TSE</span>
@@ -232,11 +261,12 @@ h1{font-size:clamp(26px,3.4vw,40px)}
       <div class="regs" id="regs" role="group" aria-label="Filtrar por região"></div>
       <svg id="map" viewBox="0 0 600 616" role="group" aria-label="Mapa do Brasil. Cor mostra quem lidera para presidente em cada estado."></svg>
       <div class="legend" id="legend"></div>
+      <div class="ytcard" id="ytcard" hidden><button class="ytx" id="ytClose" type="button" aria-label="Parar e fechar o player">×</button><div id="ytp"></div></div>
     </section>
     <aside class="panel" id="panel"></aside>
   </main>
+  <aside class="ad" id="ad" aria-label="Publicidade"><span class="adtag">Publicidade</span><div class="slot" id="adSlot"></div></aside>
   <div class="tip" id="tip" hidden></div>
-  <div class="ytcard" id="ytcard" hidden><div class="yth"><span>YouTube</span><button class="btn sm" id="ytClose" type="button" aria-label="Fechar player">×</button></div><div id="ytp"></div></div>
 </div>
 
 <script>
@@ -249,6 +279,25 @@ const CICLO = 'ele2026';
 const ELEICOES = { 1: { fed: 6257, est: 6259 }, 2: { fed: 6258, est: 6260 } };  // códigos do TSE (federal = presidente, estadual = governador)
 const GOV_UFS = ['AC','AM','DF','ES','RN','TO'];  // estados/DF com 2º turno para governador (RJ foi decidido no 1º turno)
 const INTERVALO_MS = 45000;
+/* Paleta de cores: 'A' Clássico, 'B' Elétrico, 'C' Profundo. Para testar sem editar: adicione ?paleta=B ao endereço. */
+const PALETAS = {
+  A: { claro: { lula: '#e5091f', bolso: '#0a50ff' }, escuro: { lula: '#ff2f45', bolso: '#2f7bff' }, stops: [30, 65, 100] },
+  B: { claro: { lula: '#ff1744', bolso: '#0090ff' }, escuro: { lula: '#ff3d5e', bolso: '#25a5ff' }, stops: [38, 78, 100] },
+  C: { claro: { lula: '#c8102e', bolso: '#0b2fd0' }, escuro: { lula: '#e8334f', bolso: '#4a6bff' }, stops: [42, 100, 100], fundo: true }
+};
+const PALETA = (() => { try { const m = location.search.match(/[?&]paleta=([ABC])/i); if (m) return m[1].toUpperCase(); } catch (e) {} return 'A'; })();
+const PAL = PALETAS[PALETA];
+(function(){
+  const c = PAL.claro, e = PAL.escuro, s = document.createElement('style');
+  s.textContent = ':root{--lula:' + c.lula + ';--bolso:' + c.bolso + '}@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--lula:' + e.lula + ';--bolso:' + e.bolso + '}}:root[data-theme="dark"]{--lula:' + e.lula + ';--bolso:' + e.bolso + '}';
+  document.body.appendChild(s);
+})();
+function corMapa(cor, f){
+  const st = PAL.stops, p = f < 0.5 ? st[0] + (st[1] - st[0]) * (f / 0.5) : st[1] + (st[2] - st[1]) * ((f - 0.5) / 0.5);
+  let c = 'color-mix(in srgb, ' + cor + ' ' + p.toFixed(0) + '%, var(--panel))';
+  if (PAL.fundo && f > 0.5) c = 'color-mix(in srgb, ' + c + ' ' + (100 - (f - 0.5) * 2 * 24).toFixed(0) + '%, #000)';
+  return c;
+}
 const OUTROS = ['--o1','--o2','--o0','--o3','--o4'];
 const UFS = Object.keys(GEO.states);
 const REGIOES = { 'Norte': ['AC','AM','AP','PA','RO','RR','TO'], 'Nordeste': ['AL','BA','CE','MA','PB','PE','PI','RN','SE'], 'Centro-Oeste': ['DF','GO','MS','MT'], 'Sudeste': ['ES','MG','RJ','SP'], 'Sul': ['PR','RS','SC'] };
@@ -392,7 +441,7 @@ function pintar(){
   UFS.forEach(uf => {
     const un = D && D.pres.uf[uf], l = lider(un), p = pathEl[uf];
     if (!l){ p.style.fill = 'var(--none)'; p.style.fillOpacity = 1; }
-    else { p.style.fill = l.cor; p.style.fillOpacity = (0.45 + 0.55 * un.f).toFixed(2); }
+    else { p.style.fill = corMapa(l.cor, un.f); p.style.fillOpacity = 1; }
     p.setAttribute('aria-label', GEO.states[uf].name + (un ? ', ' + pct(un.f * 100) + ' apurado' : '') + (l ? ', lidera ' + tc(l.nome) : ''));
     p.classList.toggle('sel', uf === sel);
     const fora = !!regiao && !REGIOES[regiao].includes(uf);
@@ -515,10 +564,10 @@ window.addEventListener('resize', () => aplicarVB(vbAtual));
 function selecionar(uf){ sel = (uf === sel ? null : uf); desenhar(); }
 
 function legenda(){
+  const g = k => 'linear-gradient(90deg,' + corMapa('var(--' + k + ')', 0) + ',' + corMapa('var(--' + k + ')', 1) + ')';
   document.getElementById('legend').innerHTML =
-    '<span><i class="sw" style="background:var(--lula)"></i>Lula</span><span><i class="sw" style="background:var(--bolso)"></i>Bolsonaro</span>' +
-    '<span><i class="sw" style="background:var(--o0)"></i>Outro candidato (1º turno)</span><span><i class="ramp"></i>mais seções apuradas</span>' +
-    '<span><i class="gdot"></i>também tem governador</span>';
+    '<span><i class="sw wide" style="background:' + g('lula') + '"></i>Lula</span><span><i class="sw wide" style="background:' + g('bolso') + '"></i>Bolsonaro</span>' +
+    '<span><i class="sw" style="background:var(--o0)"></i>Outro (1º turno)</span><span>cor mais forte = mais seções apuradas</span><span><i class="gdot"></i>também tem governador</span>';
 }
 
 function desenhar(){
@@ -571,7 +620,8 @@ document.getElementById('btnReset').addEventListener('click', () => { demoCriar(
    Sem arquivos, toca uma música ambiente gerada no próprio navegador (sem direitos autorais).
    Para tocar suas músicas, coloque os arquivos no repositório e liste aqui,
    por exemplo ['musicas/faixa1.mp3', 'musicas/faixa2.mp3'] (use só músicas que você tem direito de usar). */
-const MUSICAS = [];
+const MUSICAS_CFG = [];
+let MUSICAS = MUSICAS_CFG.slice();
 const BPM = 88, NOTA = m => 440 * Math.pow(2, (m - 69) / 12);
 const ACORDES = [{ b: 45, n: [57,60,64,67] }, { b: 41, n: [53,57,60,64] }, { b: 48, n: [60,64,67,71] }, { b: 43, n: [55,59,62,64] }];
 const ARP = [0,1,2,3,2,1,3,2];
@@ -657,7 +707,7 @@ function ytLigar(recarregar){
   ytCard.hidden = false; ytErros = 0;
   ytCarregarAPI(() => {
     if (!yt){
-      yt = new YT.Player('ytp', { width: '220', height: '200', playerVars: { playsinline: 1, rel: 0 }, events: {
+      yt = new YT.Player('ytp', { width: '200', height: '200', playerVars: { playsinline: 1, rel: 0 }, events: {
         onReady: () => ytIr(ytIdx),
         onStateChange: e => { if (e.data === 1) ytErros = 0; if (e.data === 0 && ytIds.length > 1){ ytPos[ytIds[ytIdx]] = 0; ytIr(ytIdx + 1); } },
         onError: () => { ytErros++; if (ytIds.length > 1 && ytErros < ytIds.length) ytIr(ytIdx + 1); else rTrk.textContent = 'Vídeo indisponível'; }
@@ -683,17 +733,24 @@ btnYt.addEventListener('click', () => {
   if (!popEl.hidden){ ytIn.value = (ytSalvo || ytIds.map(i => 'https://www.youtube.com/watch?v=' + i).join('\n')); ytIn.focus(); }
 });
 document.getElementById('ytGo').addEventListener('click', () => {
-  const ids = ytIdsDe(ytIn.value);
-  if (!ids.length){ rTrk.textContent = 'Link do YouTube inválido'; return; }
-  if (radioOn && fonte !== 'yt') desligar();
-  ytSalvo = ytIn.value.trim(); ytIds = ids; ytIdx = 0; ytPos = {}; ytAtivo = false; fonte = 'yt'; radioOn = true; rotuloRadio(); atualizarNext();
-  try { localStorage.setItem('apuracao-yt', ytSalvo); } catch (e) {}
-  fecharPop(); ytLigar(true);
+  const ids = ytIdsDe(ytIn.value), urls = (ytIn.value.match(/https:\/\/[^\s,;]+/g) || []).filter(u => !/youtube\.com|youtu\.be/i.test(u));
+  if (!ids.length && !urls.length){ rTrk.textContent = 'Link inválido (use YouTube ou https://...)'; return; }
+  if (radioOn) desligar();
+  ytSalvo = ytIn.value.trim(); radioOn = true; rotuloRadio();
+  if (ids.length){
+    ytIds = ids; ytIdx = 0; ytPos = {}; ytAtivo = false; fonte = 'yt'; atualizarNext();
+    try { localStorage.setItem('apuracao-yt', ytSalvo); } catch (e) {}
+    fecharPop(); ytLigar(true);
+  } else {
+    MUSICAS = urls; faixa = 0; if (audEl){ audEl.pause(); audEl = null; } fonte = 'lista'; atualizarNext();
+    try { localStorage.removeItem('apuracao-yt'); } catch (e) {}
+    fecharPop(); ligar();
+  }
 });
 document.getElementById('ytOff').addEventListener('click', () => {
-  fecharPop(); if (fonte === 'yt'){ ytPausar(); ytCard.hidden = true; }
+  fecharPop(); if (fonte === 'yt'){ ytPausar(); ytCard.hidden = true; } else if (radioOn) desligar();
   ytSalvo = ''; try { localStorage.removeItem('apuracao-yt'); } catch (e) {}
-  fonte = MUSICAS.length ? 'lista' : 'sintese'; atualizarNext(); rTrk.textContent = ''; if (radioOn) ligar();
+  MUSICAS = MUSICAS_CFG.slice(); if (audEl){ audEl.pause(); audEl = null; } faixa = 0; fonte = MUSICAS.length ? 'lista' : 'sintese'; atualizarNext(); rTrk.textContent = ''; if (radioOn) ligar();
 });
 document.getElementById('ytClose').addEventListener('click', () => { radioOn = false; rotuloRadio(); desligar(); });
 rVol.addEventListener('input', () => {
@@ -701,6 +758,18 @@ rVol.addEventListener('input', () => {
   try { localStorage.setItem('apuracao-vol', rVol.value); } catch (e) {}
 });
 
+/* ---------- PUBLICIDADE ----------
+   Coloque as imagens no repositório (ex.: pasta anuncios/) e liste aqui. Vários anúncios alternam sozinhos.
+   Exemplo: [{ img: 'anuncios/banner1.png', href: 'https://site-do-anunciante.com', alt: 'Nome do anunciante' }] */
+const ANUNCIOS = [];
+const ANUNCIO_MS = 12000;
+function montarAnuncio(){
+  const slot = document.getElementById('adSlot'); let i = 0;
+  if (!ANUNCIOS.length){ slot.innerHTML = '<span class="vazio">Espaço para publicidade · anuncie aqui</span>'; return; }
+  const mostrar = () => { const a = ANUNCIOS[i++ % ANUNCIOS.length]; slot.innerHTML = '<a href="' + a.href + '" target="_blank" rel="noopener sponsored"><img src="' + a.img + '" alt="' + (a.alt || 'Publicidade') + '"></a>'; };
+  mostrar(); if (ANUNCIOS.length > 1) setInterval(mostrar, ANUNCIO_MS);
+}
+montarAnuncio();
 montarMapa(); legenda(); montarRegs(); aplicarVB(vbAtual);
 if (DEMO){
   document.getElementById('demoCtl').hidden = false;

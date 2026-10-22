@@ -33,3 +33,8 @@ no topo do bloco "RÁDIO" do `index.html`. Use só músicas que você tem direit
 A lista padrão está em `YOUTUBE_LISTA` (IDs dos vídeos) e o tempo em `MIN_POR_VIDEO` (15 minutos), no bloco "RÁDIO" do `index.html`.
 A rádio toca ~15 minutos de cada vídeo, passa para o próximo e, no fim da lista, volta ao primeiro retomando de onde parou.
 Se um vídeo não permitir incorporação, ele é pulado automaticamente.
+
+## Paleta, publicidade e música
+- **Paleta:** `PALETA`/`PALETAS` no `index.html` (A Clássico, B Elétrico, C Profundo). Para testar sem editar: `.../?paleta=B`.
+- **Publicidade:** faixa no rodapé. Coloque as imagens numa pasta `anuncios/` e liste em `ANUNCIOS` (imagem, link e texto). Vários anúncios alternam a cada 12 s.
+- **Música por link:** o botão "Trocar música" aceita links do YouTube e também links https de áudio direto (.mp3 ou rádio na internet).
