@@ -17,3 +17,9 @@ Para ver o layout sem dados reais: `.../?demo`.
 ## Se aparecer erro de leitura do TSE (CORS)
 Ative o workflow `.github/workflows/espelho.yml`: ele copia os arquivos para `dados/` a cada ~5 min
 e a página passa a ler de lá automaticamente (atualização mais lenta).
+
+## Rádio (música ambiente)
+O botão "♪ Ligar rádio" toca uma música ambiente gerada no próprio navegador (sem direitos autorais).
+Navegadores só liberam som depois de um clique, então alguém precisa apertar o botão.
+Para tocar suas próprias músicas, coloque os arquivos numa pasta `musicas/` do repositório e liste em `MUSICAS`
+no topo do bloco "RÁDIO" do `index.html`. Use só músicas que você tem direito de usar em um site público.
