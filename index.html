@@ -217,15 +217,18 @@ const caminhoGov = (ele, uf) => '/oficial/' + CICLO + '/' + ele + '/dados/' + uf
 let usarEspelho = false;
 async function buscar(caminho){
   const urls = usarEspelho ? ['./dados' + caminho] : [TSE + caminho, './dados' + caminho];
+  let motivo = 'rede/CORS';
   for (let i = 0; i < urls.length; i++){
     try {
       const r = await fetch(urls[i], { cache: 'no-cache' });
       if (r.ok) return await r.json();
+      motivo = 'HTTP ' + r.status;
     } catch (err){
+      motivo = 'rede/CORS';
       if (i === 0 && !usarEspelho){ usarEspelho = true; }
     }
   }
-  throw new Error('sem dados: ' + caminho);
+  throw new Error(caminho.split('/').slice(-1)[0] + ' (' + motivo + ')');
 }
 async function carregarTSE(turno){
   const el = ELEICOES[turno];
@@ -235,9 +238,9 @@ async function carregarTSE(turno){
     ...GOV_UFS.map(uf => buscar(caminhoGov(el.est, uf)).then(j => ['gov:' + uf, parseUnit(j)]))
   ];
   const res = await Promise.allSettled(jobs);
-  const out = { pres: { br: null, uf: {} }, gov: {}, falhas: 0 };
+  const out = { pres: { br: null, uf: {} }, gov: {}, falhas: 0, lista: [] };
   res.forEach(r => {
-    if (r.status !== 'fulfilled'){ out.falhas++; return; }
+    if (r.status !== 'fulfilled'){ out.falhas++; out.lista.push(r.reason && r.reason.message ? r.reason.message : '?'); return; }
     const [k, un] = r.value;
     if (k === 'br'){ colorirPres(un); out.pres.br = un; }
     else if (k.startsWith('uf:')){ colorirPres(un); out.pres.uf[k.slice(3)] = un; }
@@ -423,7 +426,7 @@ async function atualizar(){
     const novo = await carregarTSE(turno);
     if (!novo.pres.br){ throw new Error('nacional indisponível'); }
     D = novo; agora = new Date(); banner.hidden = !novo.falhas;
-    if (novo.falhas) banner.textContent = novo.falhas + ' arquivo(s) não puderam ser lidos agora; os demais estão atualizados.';
+    if (novo.falhas) banner.textContent = novo.falhas + ' arquivo(s) não puderam ser lidos agora: ' + novo.lista.join(', ') + '. Os demais estão atualizados.';
   } catch (err){
     banner.hidden = false;
     banner.textContent = 'Não foi possível ler os dados do TSE agora. Tentando de novo em instantes.' + (D ? ' Exibindo a última leitura.' : '');
