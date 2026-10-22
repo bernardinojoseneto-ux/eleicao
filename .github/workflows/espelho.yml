@@ -14,7 +14,7 @@ jobs:
         run: |
           B=https://resultados.tse.jus.br
           UFS="br ac al am ap ba ce df es go ma mg ms mt pa pb pe pi pr rj rn ro rr rs sc se sp to zz"
-          GOV="ac am df es rj rn to"
+          GOV="ac am df es rn to"
           get() { mkdir -p "dados$(dirname "$1")"; curl -fsS --max-time 20 "$B$1" -o "dados$1.tmp" && mv "dados$1.tmp" "dados$1" || rm -f "dados$1.tmp"; }
           for u in $UFS; do get "/oficial/ele2026/6257/dados/$u/$u-c0001-e006257-u.json"; done
           for u in $GOV; do get "/oficial/ele2026/6259/dados/$u/$u-c0003-e006259-u.json"; done

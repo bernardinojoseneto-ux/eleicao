@@ -10,7 +10,7 @@ Site estático: um único `index.html`. Lê direto os JSON públicos do TSE no n
 Para ver o layout sem dados reais: `.../?demo`.
 
 ## Configuração (topo do `<script>`)
-- `GOV_UFS`: estados/DF com 2º turno para governador (hoje AC, AM, DF, ES, RJ, RN, TO).
+- `GOV_UFS`: estados/DF com 2º turno para governador (hoje AC, AM, DF, ES, RN, TO; o RJ foi decidido no 1º turno).
 - `ELEICOES`: códigos do TSE (1º turno 6257/6259, 2º turno 6258/6260).
 - Cores: `--lula` (vermelho) e `--bolso` (azul) no CSS. A cor é decidida pelo nome do candidato (contém "Lula" ou "Bolsonaro").
 
