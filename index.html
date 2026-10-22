@@ -175,7 +175,7 @@ h1{font-size:clamp(26px,3.4vw,40px)}
 .btn.sm{padding:4px 10px; font-size:13px}
 .radio{position:relative}
 .pop{position:absolute; right:0; top:calc(100% + 8px); z-index:40; width:min(340px,90vw); background:var(--panel); border:1px solid var(--fg); border-radius:8px; padding:12px; box-shadow:0 8px 24px rgb(0 0 0 / .3)}
-.pop input[type=text]{width:100%; font:inherit; font-size:14px; padding:7px 9px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg)}
+.pop textarea{display:block; resize:vertical; width:100%; font:inherit; font-size:14px; padding:7px 9px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg)}
 .pop .acts{display:flex; gap:8px; margin-top:8px; flex-wrap:wrap}
 .pop p{margin:8px 0 0; font-size:12.5px; color:var(--muted)}
 .ytcard{position:fixed; left:max(16px, env(safe-area-inset-left, 0px)); bottom:calc(86px + env(safe-area-inset-bottom, 0px)); z-index:30; width:236px; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px; box-shadow:0 6px 20px rgb(0 0 0 / .3)}
@@ -211,9 +211,9 @@ h1{font-size:clamp(26px,3.4vw,40px)}
         <input id="vol" type="range" min="0" max="100" value="60" aria-label="Volume da rádio">
         <span class="trk" id="trk"></span>
         <div class="pop" id="pop" hidden>
-          <input id="ytIn" type="text" placeholder="Cole o link de um vídeo ou playlist do YouTube" aria-label="Link do YouTube">
+          <textarea id="ytIn" rows="3" placeholder="Cole um ou vários links do YouTube (um por linha)" aria-label="Links do YouTube"></textarea>
           <div class="acts"><button class="btn" id="ytGo" type="button">Tocar</button><button class="btn" id="ytOff" type="button">Voltar à música ambiente</button></div>
-          <p>Funciona com vídeos e playlists que permitem incorporação. O player aparece no canto da tela.</p>
+          <p>Com vários links, a rádio alterna entre eles a cada 15 minutos e retoma de onde parou. Só toca vídeos que permitem incorporação. O player aparece no canto da tela.</p>
         </div>
       </span>
       <span class="chip" id="chip">Fonte: TSE</span>
@@ -619,74 +619,83 @@ function ligarLista(){
   if (!audEl){ audEl = new Audio(); audEl.preload = 'auto'; audEl.addEventListener('ended', proxima); carregarFaixa(faixa); }
   audEl.volume = vol(); audEl.play().catch(() => { rTrk.textContent = 'Não foi possível tocar'; });
 }
-rNext.addEventListener('click', proxima);
-rNext.hidden = MUSICAS.length < 2;
-
-/* YouTube: o dono do site pode deixar um link padrão aqui (vídeo ou playlist);
-   cada visitante também pode colar o próprio link no botão "YouTube". */
-const YOUTUBE = '';
-let ytLink = YOUTUBE, yt = null, fonte = MUSICAS.length ? 'lista' : 'sintese';
-try { ytLink = localStorage.getItem('apuracao-yt') || YOUTUBE; } catch (e) {}
-if (ytLink) fonte = 'yt';
-const popEl = document.getElementById('pop'), ytCard = document.getElementById('ytcard'), ytIn = document.getElementById('ytIn');
-function ytParse(s){
-  s = String(s || '').trim();
-  const list = (s.match(/[?&]list=([\w-]+)/) || [])[1];
-  let vid = (s.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/) || [])[1];
-  if (!vid && /^[\w-]{11}$/.test(s)) vid = s;
-  return { list, vid };
+/* YouTube: lista padrão do site. Toca ~MIN_POR_VIDEO minutos de cada vídeo e passa para o próximo,
+   voltando ao primeiro no fim da lista (cada vídeo retoma de onde parou).
+   Cada visitante pode trocar a lista no botão "YouTube". */
+const YOUTUBE_LISTA = ['mSNWhS7LN6k', '_rC9e3M-DaE', 'NzjiWJNbqr8', 'NZYgVLRGcuE', '6UPcYolV7GY'];
+const MIN_POR_VIDEO = 15;
+function ytIdsDe(s){
+  const r = [], re = /(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/g; let m;
+  while ((m = re.exec(String(s || '')))) if (!r.includes(m[1])) r.push(m[1]);
+  if (!r.length) String(s || '').split(/[\s,;]+/).forEach(x => { if (/^[\w-]{11}$/.test(x) && !r.includes(x)) r.push(x); });
+  return r;
 }
+let ytIds = YOUTUBE_LISTA.slice(), yt = null, ytIdx = 0, ytPos = {}, ytTimer = null, ytErros = 0, ytAtivo = false, ytSalvo = '';
+let fonte = MUSICAS.length ? 'lista' : 'sintese';
+try { ytSalvo = localStorage.getItem('apuracao-yt') || ''; } catch (e) {}
+if (ytSalvo && ytIdsDe(ytSalvo).length) ytIds = ytIdsDe(ytSalvo);
+if (ytIds.length) fonte = 'yt';
+const popEl = document.getElementById('pop'), ytCard = document.getElementById('ytcard'), ytIn = document.getElementById('ytIn'), btnYt = document.getElementById('btnYt');
+function atualizarNext(){ rNext.hidden = !((fonte === 'lista' && MUSICAS.length > 1) || (fonte === 'yt' && ytIds.length > 1)); }
 function ytCarregarAPI(cb){
   if (window.YT && window.YT.Player){ cb(); return; }
   window.onYouTubeIframeAPIReady = cb;
   const s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api';
-  s.onerror = () => { rTrk.textContent = 'YouTube indisponível aqui'; ytCard.hidden = true; fonte = MUSICAS.length ? 'lista' : 'sintese'; };
+  s.onerror = () => { rTrk.textContent = 'YouTube indisponível aqui'; ytCard.hidden = true; ytAtivo = false; fonte = MUSICAS.length ? 'lista' : 'sintese'; atualizarNext(); if (radioOn) ligar(); };
   document.head.appendChild(s);
 }
-function ytLigar(){
-  const p = ytParse(ytLink);
-  if (!p.list && !p.vid){ rTrk.textContent = 'Link do YouTube inválido'; return; }
-  ytCard.hidden = false; rTrk.textContent = 'YouTube';
+function ytTimerIniciar(){ clearTimeout(ytTimer); if (ytIds.length > 1) ytTimer = setTimeout(() => ytIr(ytIdx + 1), MIN_POR_VIDEO * 60000); }
+function ytIr(i){
+  if (yt && yt.getCurrentTime && ytAtivo){ try { ytPos[ytIds[ytIdx]] = yt.getCurrentTime(); } catch (e) {} }
+  ytIdx = ((i % ytIds.length) + ytIds.length) % ytIds.length; ytAtivo = true;
+  const id = ytIds[ytIdx];
+  yt.loadVideoById({ videoId: id, startSeconds: Math.floor(ytPos[id] || 0) }); yt.setVolume(vol() * 100);
+  rTrk.textContent = 'YouTube ' + (ytIdx + 1) + '/' + ytIds.length; ytTimerIniciar();
+}
+function ytLigar(recarregar){
+  if (!ytIds.length){ rTrk.textContent = 'Link do YouTube inválido'; return; }
+  ytCard.hidden = false; ytErros = 0;
   ytCarregarAPI(() => {
     if (!yt){
-      yt = new YT.Player('ytp', { width: '220', height: '200', videoId: p.list ? undefined : p.vid,
-        playerVars: p.list ? { listType: 'playlist', list: p.list, playsinline: 1, rel: 0 } : { playsinline: 1, rel: 0 },
-        events: { onReady: e => { e.target.setVolume(vol() * 100); if (radioOn) e.target.playVideo(); } } });
-    } else {
-      if (p.list) yt.loadPlaylist({ listType: 'playlist', list: p.list }); else yt.loadVideoById(p.vid);
-      yt.setVolume(vol() * 100);
-    }
+      yt = new YT.Player('ytp', { width: '220', height: '200', playerVars: { playsinline: 1, rel: 0 }, events: {
+        onReady: () => ytIr(ytIdx),
+        onStateChange: e => { if (e.data === 1) ytErros = 0; if (e.data === 0 && ytIds.length > 1){ ytPos[ytIds[ytIdx]] = 0; ytIr(ytIdx + 1); } },
+        onError: () => { ytErros++; if (ytIds.length > 1 && ytErros < ytIds.length) ytIr(ytIdx + 1); else rTrk.textContent = 'Vídeo indisponível'; }
+      } });
+    } else if (recarregar){ ytIr(0); }
+    else { yt.playVideo(); ytTimerIniciar(); }
   });
 }
-function ytParar(){
-  if (yt && yt.pauseVideo) yt.pauseVideo();
-  ytCard.hidden = true; ytLink = ''; fonte = MUSICAS.length ? 'lista' : 'sintese';
-  try { localStorage.removeItem('apuracao-yt'); } catch (e) {}
-  rTrk.textContent = ''; if (radioOn) ligar();
-}
-function ligar(){ if (fonte === 'yt') ytLigar(); else if (fonte === 'lista') ligarLista(); else ligarSintese(); }
+function ytPausar(){ if (yt && yt.pauseVideo) yt.pauseVideo(); clearTimeout(ytTimer); }
+function ligar(){ if (fonte === 'yt') ytLigar(false); else if (fonte === 'lista') ligarLista(); else ligarSintese(); }
 function desligar(){
-  if (fonte === 'yt'){ if (yt && yt.pauseVideo) yt.pauseVideo(); }
+  if (fonte === 'yt'){ ytPausar(); ytCard.hidden = true; }
   else if (fonte === 'lista'){ if (audEl) audEl.pause(); }
   else desligarSintese();
 }
 function rotuloRadio(){ rBtn.setAttribute('aria-pressed', String(radioOn)); rBtn.textContent = radioOn ? '♪ Rádio ligada' : '♪ Ligar rádio'; }
+function fecharPop(){ popEl.hidden = true; btnYt.setAttribute('aria-expanded', 'false'); }
 rBtn.addEventListener('click', () => { radioOn = !radioOn; rotuloRadio(); if (radioOn) ligar(); else desligar(); });
-document.getElementById('btnYt').addEventListener('click', e => {
-  popEl.hidden = !popEl.hidden; e.currentTarget.setAttribute('aria-expanded', String(!popEl.hidden));
-  if (!popEl.hidden){ ytIn.value = ytLink; ytIn.focus(); }
+rNext.addEventListener('click', () => { if (fonte === 'yt'){ if (yt) ytIr(ytIdx + 1); } else proxima(); });
+atualizarNext();
+btnYt.addEventListener('click', () => {
+  popEl.hidden = !popEl.hidden; btnYt.setAttribute('aria-expanded', String(!popEl.hidden));
+  if (!popEl.hidden){ ytIn.value = (ytSalvo || ytIds.map(i => 'https://www.youtube.com/watch?v=' + i).join('\n')); ytIn.focus(); }
 });
 document.getElementById('ytGo').addEventListener('click', () => {
-  const p = ytParse(ytIn.value);
-  if (!p.list && !p.vid){ rTrk.textContent = 'Link do YouTube inválido'; return; }
-  if (radioOn) desligar();
-  ytLink = ytIn.value.trim(); fonte = 'yt'; radioOn = true; rotuloRadio();
-  try { localStorage.setItem('apuracao-yt', ytLink); } catch (e) {}
-  popEl.hidden = true; document.getElementById('btnYt').setAttribute('aria-expanded', 'false');
-  ytLigar();
+  const ids = ytIdsDe(ytIn.value);
+  if (!ids.length){ rTrk.textContent = 'Link do YouTube inválido'; return; }
+  if (radioOn && fonte !== 'yt') desligar();
+  ytSalvo = ytIn.value.trim(); ytIds = ids; ytIdx = 0; ytPos = {}; ytAtivo = false; fonte = 'yt'; radioOn = true; rotuloRadio(); atualizarNext();
+  try { localStorage.setItem('apuracao-yt', ytSalvo); } catch (e) {}
+  fecharPop(); ytLigar(true);
 });
-document.getElementById('ytOff').addEventListener('click', () => { popEl.hidden = true; document.getElementById('btnYt').setAttribute('aria-expanded', 'false'); if (fonte === 'yt') ytParar(); });
-document.getElementById('ytClose').addEventListener('click', ytParar);
+document.getElementById('ytOff').addEventListener('click', () => {
+  fecharPop(); if (fonte === 'yt'){ ytPausar(); ytCard.hidden = true; }
+  ytSalvo = ''; try { localStorage.removeItem('apuracao-yt'); } catch (e) {}
+  fonte = MUSICAS.length ? 'lista' : 'sintese'; atualizarNext(); rTrk.textContent = ''; if (radioOn) ligar();
+});
+document.getElementById('ytClose').addEventListener('click', () => { radioOn = false; rotuloRadio(); desligar(); });
 rVol.addEventListener('input', () => {
   if (master) master.gain.value = vol() * 0.8; if (audEl) audEl.volume = vol(); if (yt && yt.setVolume) yt.setVolume(vol() * 100);
   try { localStorage.setItem('apuracao-vol', rVol.value); } catch (e) {}

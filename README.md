@@ -28,3 +28,8 @@ no topo do bloco "RÁDIO" do `index.html`. Use só músicas que você tem direit
 - Os botões acima do mapa (Norte, Nordeste, Centro-Oeste, Sudeste, Sul) dão zoom na região e mostram o placar somado dela.
 - O botão "YouTube" deixa qualquer visitante colar o link de um vídeo ou playlist para tocar no player do canto da tela.
   Para já abrir o site com uma playlist sua, coloque o link em `YOUTUBE` no bloco "RÁDIO" do `index.html`.
+
+## Rádio com YouTube (rodízio)
+A lista padrão está em `YOUTUBE_LISTA` (IDs dos vídeos) e o tempo em `MIN_POR_VIDEO` (15 minutos), no bloco "RÁDIO" do `index.html`.
+A rádio toca ~15 minutos de cada vídeo, passa para o próximo e, no fim da lista, volta ao primeiro retomando de onde parou.
+Se um vídeo não permitir incorporação, ele é pulado automaticamente.
